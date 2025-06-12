@@ -1,0 +1,24 @@
+name: Sales_Forecasting_Pipeline_Windows
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      data_path: {type: str, default: "data_processed.csv"}
+      experiment_name: {type: str, default: "Sales_Forecasting_Experiment"}
+      tracking_uri: {type: str, default: "http://localhost:5000"}
+      test_size: {type: float, default: 0.2}
+      random_state: {type: int, default: 42}
+      model_type: {type: str, default: "all"}
+      max_combinations: {type: int, default: 3}
+      verbose: {type: str, default: "false"}
+    command: "python modelling.py --data_path {data_path} --experiment_name {experiment_name} --tracking_uri {tracking_uri} --test_size {test_size} --random_state {random_state} --model_type {model_type} --max_combinations {max_combinations} {verbose}"
+  
+  quick_test:
+    parameters:
+      model_type: {type: str, default: "RandomForest"}
+    command: "python modelling.py --model_type {model_type} --max_combinations 1 --verbose"
+  
+  serving_test:
+    command: "python ../mlflow_serve.py info"

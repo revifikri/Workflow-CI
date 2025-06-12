@@ -1,0 +1,14 @@
+# Terminal 1 - Run MLflow server
+mlflow server --host localhost --port 5000
+
+# Terminal 2 - Run MLflow model
+python modelling.py
+
+# Terminal 3 - Check what models are available
+python mlflow_serve.py info
+
+# Terminal 3 - Start model serving
+python mlflow_serve.py serve --port 1234
+
+# Terminal 4 - Test the model API
+python mlflow_serve.py test --port 1234
