@@ -1,0 +1,75 @@
+name: Sales_Forecasting_Pipeline_Autolog
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      data_path: {type: str, default: "data forecasting_processed.csv"}
+      experiment_name: {type: str, default: "Sales_Forecasting_Experiment_v2"}
+      tracking_uri: {type: str, default: "http://localhost:5000"}
+      test_size: {type: float, default: 0.2}
+      random_state: {type: int, default: 42}
+      model_type: {type: str, default: "all"}
+      mode: {type: str, default: "full"}
+      max_combinations: {type: int, default: 3}
+      serving_port: {type: int, default: 1234}
+      no_autolog: {type: str, default: "false"}
+      verbose: {type: str, default: "false"}
+      no_champion: {type: str, default: "false"}
+    command: |
+      python modelling.py \
+        --data_path "{data_path}" \
+        --experiment_name "{experiment_name}" \
+        --tracking_uri "{tracking_uri}" \
+        --test_size {test_size} \
+        --random_state {random_state} \
+        --model_type "{model_type}" \
+        --mode "{mode}" \
+        --max_combinations {max_combinations} \
+        --serving_port {serving_port} \
+        {%- if no_autolog == "true" %} --no_autolog{%- endif %} \
+        {%- if verbose == "true" %} --verbose{%- endif %} \
+        {%- if no_champion == "true" %} --no_champion{%- endif %}
+  
+  quick_test:
+    parameters:
+      model_type: {type: str, default: "RandomForest"}
+      experiment_name: {type: str, default: "Quick_Test_Experiment"}
+    command: |
+      python modelling.py \
+        --model_type "{model_type}" \
+        --experiment_name "{experiment_name}" \
+        --max_combinations 1 \
+        --verbose
+  
+  autolog_test:
+    parameters:
+      experiment_name: {type: str, default: "Autolog_Test_Experiment"}
+    command: |
+      python modelling.py \
+        --experiment_name "{experiment_name}" \
+        --model_type "RandomForest" \
+        --max_combinations 2 \
+        --verbose
+  
+  no_autolog_test:
+    parameters:
+      experiment_name: {type: str, default: "Manual_Log_Test_Experiment"}
+    command: |
+      python modelling.py \
+        --experiment_name "{experiment_name}" \
+        --model_type "RandomForest" \
+        --max_combinations 2 \
+        --no_autolog \
+        --verbose
+  
+  ci_pipeline:
+    parameters:
+      experiment_name: {type: str, default: "CI_Pipeline_Experiment"}
+    command: |
+      python modelling.py \
+        --experiment_name "{experiment_name}" \
+        --model_type "RandomForest" \
+        --max_combinations 2 \
+        --mode "full" \
+        --verbose
