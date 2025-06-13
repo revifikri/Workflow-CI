@@ -1,14 +1,14 @@
-# Terminal 1 - Run MLflow server
+# Run MLflow server
 mlflow server --host localhost --port 5000
 
-# Terminal 2 - Run MLflow model
+# Run MLflow model
 python modelling.py
 
-# Terminal 3 - Check what models are available
-python mlflow_serve.py info
+# Start fresh with proper artifact configuration:
+mlflow server --backend-store-uri sqlite:///mlflow_new.db --default-artifact-root ./mlruns_new --host localhost --port 5000 --serve-artifacts
 
-# Terminal 3 - Start model serving
+# Train a fresh model (this will use the new clean MLflow setup)
+python modelling.py --experiment_name Sales_Fresh_Test --max_combinations 2 --model_type RandomForest
+
+# Serving model
 python mlflow_serve.py serve --port 1234
-
-# Terminal 4 - Test the model API
-python mlflow_serve.py test --port 1234
