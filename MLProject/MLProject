@@ -13,9 +13,7 @@ entry_points:
       mode: {type: str, default: "full"}
       max_combinations: {type: int, default: 3}
       serving_port: {type: int, default: 1234}
-      no_autolog: {type: str, default: "false"}
       verbose: {type: str, default: "false"}
-      no_champion: {type: str, default: "false"}
     command: |
       python modelling.py \
         --data_path "{data_path}" \
@@ -27,17 +25,58 @@ entry_points:
         --mode "{mode}" \
         --max_combinations {max_combinations} \
         --serving_port {serving_port} \
-        {%- if no_autolog == "true" %} --no_autolog{%- endif %} \
-        {%- if verbose == "true" %} --verbose{%- endif %} \
-        {%- if no_champion == "true" %} --no_champion{%- endif %}
+        --verbose
+  
+  main_no_autolog:
+    parameters:
+      data_path: {type: str, default: "data forecasting_processed.csv"}
+      experiment_name: {type: str, default: "Sales_Forecasting_Manual_v2"}
+      tracking_uri: {type: str, default: "http://localhost:5000"}
+      test_size: {type: float, default: 0.2}
+      random_state: {type: int, default: 42}
+      model_type: {type: str, default: "all"}
+      mode: {type: str, default: "full"}
+      max_combinations: {type: int, default: 3}
+      serving_port: {type: int, default: 1234}
+      verbose: {type: str, default: "false"}
+    command: |
+      python modelling.py \
+        --data_path "{data_path}" \
+        --experiment_name "{experiment_name}" \
+        --tracking_uri "{tracking_uri}" \
+        --test_size {test_size} \
+        --random_state {random_state} \
+        --model_type "{model_type}" \
+        --mode "{mode}" \
+        --max_combinations {max_combinations} \
+        --serving_port {serving_port} \
+        --no_autolog \
+        --verbose
   
   quick_test:
     parameters:
       model_type: {type: str, default: "RandomForest"}
       experiment_name: {type: str, default: "Quick_Test_Experiment"}
+      max_combinations: {type: int, default: 1}
     command: |
       python modelling.py \
         --model_type "{model_type}" \
         --experiment_name "{experiment_name}" \
-        --max_combinations 1 \
+        --max_combinations {max_combinations} \
+        --verbose
+  
+  ci_test:
+    parameters:
+      data_path: {type: str, default: "data forecasting_processed.csv"}
+      experiment_name: {type: str, default: "CI_Test_Experiment"}
+      model_type: {type: str, default: "RandomForest"}
+      max_combinations: {type: int, default: 1}
+      tracking_uri: {type: str, default: "http://localhost:5000"}
+    command: |
+      python modelling.py \
+        --data_path "{data_path}" \
+        --experiment_name "{experiment_name}" \
+        --model_type "{model_type}" \
+        --max_combinations {max_combinations} \
+        --tracking_uri "{tracking_uri}" \
         --verbose
