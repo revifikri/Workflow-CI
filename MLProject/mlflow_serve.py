@@ -2,6 +2,7 @@
 """
 Robust MLflow Model Serving Script - Handles Artifact Download Issues
 Compatible with modelling.py and Windows 11
+Fixed experiment detection to work with Sales_Monitoring_Experiment
 """
 
 import os
@@ -98,26 +99,35 @@ class RobustMLflowModelServer:
                 print(f"💡 Windows: You might need to allow Python through Windows Firewall")
             return False
     
-    def find_Sales_Forecasting_Experiment_v2(self) -> Optional[str]:
-        """Find the Sales Forecasting experiment automatically"""
+    def find_sales_experiment(self) -> Optional[str]:
+        """Find any Sales-related experiment (updated to be more flexible)"""
         try:
             client = mlflow.tracking.MlflowClient()
             experiments = client.search_experiments()
             
-            # Look for experiments with "Sales" and "Forecasting" in the name
+            # Look for experiments with "Sales" in the name (more flexible)
             sales_experiments = []
             for exp in experiments:
                 if exp.lifecycle_stage != "deleted":
                     name_lower = exp.name.lower()
-                    if "sales" in name_lower and "forecast" in name_lower:
+                    # Check for various Sales-related experiment names
+                    if any(keyword in name_lower for keyword in [
+                        "sales", "forecast", "monitoring", "prediction", "retail"
+                    ]):
                         sales_experiments.append(exp)
             
             if not sales_experiments:
-                print("❌ No Sales Forecasting experiments found")
+                print("❌ No Sales-related experiments found")
                 print("💡 Available experiments:")
                 for exp in experiments:
                     if exp.lifecycle_stage != "deleted":
                         print(f"   - {exp.name}")
+                        
+                # If no sales experiments found, ask user to choose
+                if experiments:
+                    print("\n🤔 Would you like to use one of the available experiments?")
+                    print("💡 You can also specify experiment name manually:")
+                    print("   python mlflow_serve.py serve --experiment-name 'YourExperimentName'")
                 return None
             
             # Sort by creation time (newest first)
@@ -126,7 +136,7 @@ class RobustMLflowModelServer:
             print(f"🔍 Auto-detected experiment: {selected_exp.name}")
             
             if len(sales_experiments) > 1:
-                print(f"💡 Other Sales Forecasting experiments found:")
+                print(f"💡 Other Sales-related experiments found:")
                 for exp in sales_experiments[1:]:
                     print(f"   - {exp.name}")
             
@@ -135,6 +145,28 @@ class RobustMLflowModelServer:
         except Exception as e:
             logger.error(f"Error finding experiments: {e}")
             print(f"❌ Error finding experiments: {e}")
+            return None
+    
+    def find_experiment_by_name(self, experiment_name: str) -> Optional[str]:
+        """Find experiment by exact name"""
+        try:
+            client = mlflow.tracking.MlflowClient()
+            experiments = client.search_experiments()
+            
+            for exp in experiments:
+                if exp.lifecycle_stage != "deleted" and exp.name == experiment_name:
+                    print(f"✅ Found specified experiment: {experiment_name}")
+                    return experiment_name
+            
+            print(f"❌ Experiment '{experiment_name}' not found")
+            print("💡 Available experiments:")
+            for exp in experiments:
+                if exp.lifecycle_stage != "deleted":
+                    print(f"   - {exp.name}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error finding experiment by name: {e}")
             return None
     
     def load_feature_info_with_retry(self, run_id: str, max_retries: int = 3) -> bool:
@@ -193,13 +225,17 @@ class RobustMLflowModelServer:
             print(f"❌ Fallback method also failed: {fallback_error}")
             return False
     
-    def find_best_model(self) -> Optional[Dict[str, Any]]:
+    def find_best_model(self, experiment_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Find the best model with robust error handling"""
         if not self.check_mlflow_server():
             return None
         
-        # Auto-detect experiment
-        self.experiment_name = self.find_Sales_Forecasting_Experiment_v2()
+        # Use specified experiment or auto-detect
+        if experiment_name:
+            self.experiment_name = self.find_experiment_by_name(experiment_name)
+        else:
+            self.experiment_name = self.find_sales_experiment()
+            
         if not self.experiment_name:
             return None
         
@@ -242,10 +278,7 @@ class RobustMLflowModelServer:
                 logger.info("Found Champion model")
             else:
                 # Get best run by R2 score
-                r2_columns = []
-                for col in runs.columns:
-                    if 'r2' in col.lower() and 'metrics' in col:
-                        r2_columns.append(col)
+                r2_columns = [col for col in runs.columns if 'r2' in col.lower() and 'metrics' in col]
                 
                 priority_patterns = ['custom_test_r2', 'test_r2', 'champion_test_r2']
                 sorted_r2_cols = []
@@ -599,13 +632,14 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python mlflow_serve_robust.py info                   # Show model info
-  python mlflow_serve_robust.py serve                  # Serve with retry logic
-  python mlflow_serve_robust.py test                   # Test with timeout
+  python mlflow_serve.py info                          # Show model info
+  python mlflow_serve.py serve                         # Serve with auto-detection
+  python mlflow_serve.py serve --experiment-name "Sales_Monitoring_Experiment"  # Specify experiment
+  python mlflow_serve.py test                          # Test with timeout
 
 Features:
   - Robust artifact download with retry
-  - Auto-experiment detection
+  - Flexible experiment detection (Sales, Forecasting, Monitoring)
   - Graceful error handling
   - Extended timeouts for Windows
         """
@@ -615,6 +649,7 @@ Features:
     parser.add_argument("--port", "-p", type=int, default=1234, help="Serving port (default: 1234)")
     parser.add_argument("--host", default="127.0.0.1", help="Host (default: 127.0.0.1)")
     parser.add_argument("--tracking-uri", default="http://localhost:5000", help="MLflow tracking URI")
+    parser.add_argument("--experiment-name", default=None, help="Specific experiment name to use")
     parser.add_argument("--env-manager", choices=["local", "conda"], default="local", help="Environment manager")
     parser.add_argument("--enable-mlserver", action="store_true", help="Enable MLServer")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
@@ -631,7 +666,7 @@ Features:
     
     # Execute command
     if args.command == "info":
-        model_info = server.find_best_model()
+        model_info = server.find_best_model(experiment_name=args.experiment_name)
         if model_info:
             server.show_model_info(model_info, args.port)
         else:
@@ -639,7 +674,7 @@ Features:
             return 1
     
     elif args.command == "serve":
-        model_info = server.find_best_model()
+        model_info = server.find_best_model(experiment_name=args.experiment_name)
         if model_info:
             success = server.serve_model_robust(
                 model_info['model_uri'], host=args.host, port=args.port,
@@ -651,7 +686,7 @@ Features:
             return 1
     
     elif args.command == "test":
-        model_info = server.find_best_model()
+        model_info = server.find_best_model(experiment_name=args.experiment_name)
         if not model_info:
             print("❌ No model found for testing")
             return 1
