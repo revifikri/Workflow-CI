@@ -418,6 +418,7 @@ jobs:
         timeout-minutes: 12
         run: |
           cd MLProject
+          echo "🔄 Testing MLflow Project run..."
           
           # Use existing data or create minimal test data
           if [ ! -f "data forecasting_processed.csv" ]; then
@@ -456,11 +457,14 @@ jobs:
             DATA_FILE="data forecasting_processed.csv"
           fi
           
+          # Run MLflow project using the ci_test entry point
           timeout 600 mlflow run . \
+            --entry-point ci_test \
             -P data_path="$DATA_FILE" \
             -P experiment_name="MLProject_CI_Test" \
             -P model_type="RandomForest" \
             -P max_combinations=1 \
+            -P tracking_uri="http://localhost:5000" \
             --env-manager=local
           
           echo "✅ MLflow Project test completed"
